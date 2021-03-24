@@ -16,6 +16,7 @@
 package org.apache.ibatis.binding;
 
 import org.apache.ibatis.annotations.MapKey;
+import org.apache.ibatis.annotations.MapValue;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.mapping.SqlCommandType;
@@ -192,6 +193,13 @@ public class MapperMethod {
     }
   }
 
+  /**
+   * @since 3.2.2.m1
+   */
+  public MapValue getMapValue() {
+    return method.mapValue;
+  }
+
   public static class MethodSignature {
 
     private final boolean returnsMany;
@@ -199,6 +207,8 @@ public class MapperMethod {
     private final boolean returnsVoid;
     private final Class<?> returnType;
     private final String mapKey;
+    /** @since 3.2.2.m1 */
+    private final MapValue mapValue;
     private final Integer resultHandlerIndex;
     private final Integer rowBoundsIndex;
     private final SortedMap<Integer, String> params;
@@ -210,6 +220,7 @@ public class MapperMethod {
       this.returnsMany = (configuration.getObjectFactory().isCollection(this.returnType) || this.returnType.isArray());
       this.mapKey = getMapKey(method);
       this.returnsMap = (this.mapKey != null);
+      this.mapValue = getMapValue(method);
       this.hasNamedParameters = hasNamedParams(method);
       this.rowBoundsIndex = getUniqueParamIndex(method, RowBounds.class);
       this.resultHandlerIndex = getUniqueParamIndex(method, ResultHandler.class);
@@ -298,6 +309,16 @@ public class MapperMethod {
         }
       }
       return mapKey;
+    }
+
+    /**
+     * @since 3.2.2.m1
+     */
+    private MapValue getMapValue(Method method) {
+      if (Map.class.isAssignableFrom(method.getReturnType())) {
+        return method.getAnnotation(MapValue.class);
+      }
+      return null;
     }
 
     private SortedMap<Integer, String> getParams(Method method, boolean hasNamedParameters) {

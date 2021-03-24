@@ -20,6 +20,7 @@ import org.apache.ibatis.io.ResolverUtil;
 import org.apache.ibatis.session.Configuration;
 import org.apache.ibatis.session.SqlSession;
 
+import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -98,5 +99,22 @@ public class MapperRegistry {
   public void addMappers(String packageName) {
     addMappers(packageName, Object.class);
   }
-  
+
+  /**
+   * @since 3.2.2.m1
+   */
+  public MapperMethod getMapperMethod(String className, String methodName) {
+    for (Class<?> mapperClass : knownMappers.keySet()) {
+      if (mapperClass.getName().equals(className)) {
+        MapperProxyFactory<?> mapperProxyFactory = knownMappers.get(mapperClass);
+        Map<Method, MapperMethod> methodCache = mapperProxyFactory.getMethodCache();
+        for (Method method : methodCache.keySet()) {
+          if (method.getName().equals(methodName)) {
+            return methodCache.get(method);
+          }
+        }
+      }
+    }
+    return null;
+  }
 }

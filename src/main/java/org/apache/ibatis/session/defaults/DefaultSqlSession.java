@@ -21,13 +21,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.ibatis.annotations.MapValue;
 import org.apache.ibatis.binding.BindingException;
+import org.apache.ibatis.binding.MapperMethod;
 import org.apache.ibatis.exceptions.ExceptionFactory;
 import org.apache.ibatis.exceptions.TooManyResultsException;
 import org.apache.ibatis.executor.BatchResult;
 import org.apache.ibatis.executor.ErrorContext;
 import org.apache.ibatis.executor.Executor;
-import org.apache.ibatis.executor.result.DefaultMapResultHandler;
+import org.apache.ibatis.executor.result.CustomMapResultHandler;
 import org.apache.ibatis.executor.result.DefaultResultContext;
 import org.apache.ibatis.mapping.MappedStatement;
 import org.apache.ibatis.session.Configuration;
@@ -79,15 +81,44 @@ public class DefaultSqlSession implements SqlSession {
 
   public <K, V> Map<K, V> selectMap(String statement, Object parameter, String mapKey, RowBounds rowBounds) {
     final List<?> list = selectList(statement, parameter, rowBounds);
-    final DefaultMapResultHandler<K, V> mapResultHandler = new DefaultMapResultHandler<K, V>(mapKey,
-        configuration.getObjectFactory(), configuration.getObjectWrapperFactory());
+    /*final DefaultMapResultHandler<K, V> mapResultHandler = new DefaultMapResultHandler<K, V>(mapKey,
+        configuration.getObjectFactory(), configuration.getObjectWrapperFactory());*/
+    final MapValue mapValue = getMapValue(statement);
+    final CustomMapResultHandler<K, Object> mapResultHandler = new CustomMapResultHandler<K, Object>(mapKey, mapValue,
+            configuration.getObjectFactory(), configuration.getObjectWrapperFactory());
     final DefaultResultContext context = new DefaultResultContext();
     for (Object o : list) {
       context.nextResultObject(o);
       mapResultHandler.handleResult(context);
     }
-    Map<K, V> selectedMap = mapResultHandler.getMappedResults();
+    Map<K, V> selectedMap = (Map<K, V>) mapResultHandler.getMappedResults();
     return selectedMap;
+  }
+
+  /** @since 3.2.2.m1 */
+  private final Map<String, MapperMethod> mapperMethodCache = new HashMap<String, MapperMethod>();
+
+  /**
+   * @since 3.2.2.m1
+   */
+  private MapperMethod getMapperMethod(String statementId) {
+    MapperMethod mapperMethod = mapperMethodCache.get(statementId);
+    if (mapperMethod != null) { return mapperMethod; }
+    int index = statementId.lastIndexOf(".");
+    if (index < 0) { return null; }
+    String className = statementId.substring(0, index);
+    String methodName = statementId.substring(index + 1);
+    mapperMethod = configuration.getMapperRegistry().getMapperMethod(className, methodName);
+    if (mapperMethod != null) { mapperMethodCache.put(statementId, mapperMethod); }
+    return mapperMethod;
+  }
+
+  /**
+   * @since 3.2.2.m1
+   */
+  private MapValue getMapValue(String statementId) {
+    MapperMethod mapperMethod = getMapperMethod(statementId);
+    return mapperMethod != null ? mapperMethod.getMapValue() : null;
   }
 
   public <E> List<E> selectList(String statement) {
